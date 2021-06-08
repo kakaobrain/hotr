@@ -44,10 +44,12 @@ class SetCriterion(nn.Module):
             self.HOI_eos_coef = args.hoi_eos_coef
             self.invalid_ids = args.invalid_ids
             self.valid_ids = np.concatenate((args.valid_ids,[-1]), axis=0) # no interaction
+        self.dataset_file = args.dataset_file
         
         empty_weight = torch.ones(self.num_classes + 1)
         empty_weight[-1] = eos_coef
         self.register_buffer('empty_weight', empty_weight)
+
 
     def loss_labels(self, outputs, targets, indices, num_boxes, log=True):
         """Classification loss (NLL)
@@ -69,6 +71,7 @@ class SetCriterion(nn.Module):
             losses['class_error'] = 100 - accuracy(src_logits[idx], target_classes_o)[0]
         return losses
 
+
     @torch.no_grad()
     def loss_cardinality(self, outputs, targets, indices, num_boxes):
         """ Compute the cardinality error, ie the absolute error in the number of predicted non-empty boxes
@@ -82,6 +85,7 @@ class SetCriterion(nn.Module):
         card_err = F.l1_loss(card_pred.float(), tgt_lengths.float())
         losses = {'cardinality_error': card_err}
         return losses
+
 
     def loss_boxes(self, outputs, targets, indices, num_boxes):
         """Compute the losses related to the bounding boxes, the L1 regression loss and the GIoU loss
@@ -131,6 +135,7 @@ class SetCriterion(nn.Module):
 
         return losses
 
+
     # >>> HOI Losses 2 : pair actions
     def loss_pair_actions(self, outputs, targets, hoi_indices, num_boxes, loss_type='interactiveness'):
         assert 'pred_actions' in outputs
@@ -147,43 +152,20 @@ class SetCriterion(nn.Module):
         target_classes[idx] = pos_classes
         # --------------------------------------------------------------------------------------------------------------------------------
 
-        if True:
-            # Positive Loss --------------------------------------------------------------------------------------------------------------
-            pos_actions = src_actions[idx][:, :-1].sigmoid() * (1-src_actions[idx][:, -1:].sigmoid()) # include no-interaction
-            pos_actions[:, self.invalid_ids] = 0
-            target_classes[idx][:, self.invalid_ids] = 0
-            loss_bce_pos = F.binary_cross_entropy(pos_actions, target_classes[idx][:, :-1], reduction='none')
-            loss_bce_pos = loss_bce_pos.sum() / max(target_classes[..., self.valid_ids].sum(), 1)
-
-            actions_only = src_actions[idx][:, :-1].sigmoid()
-            loss_bce_only = F.binary_cross_entropy(actions_only[:, self.valid_ids], target_classes[idx][:, self.valid_ids], reduction='none')
-            loss_bce_only = loss_bce_only.sum() / max(target_classes[..., self.valid_ids].sum(), 1)
-            loss_bce_pos += loss_bce_only
-            # -----------------------------------------------------------------------------------------------------------------------------
-
-            # Negative Loss ----------------------------------------------------------------------------------------
-            flatten_actions = src_actions.flatten(0,1)
-            target_flatten = target_classes.flatten(0,1)
-            neg_idx = (target_flatten[:, :-1].sum(-1) == 0)
-            neg_actions = flatten_actions[neg_idx][:, :-1].sigmoid() * (1-flatten_actions[neg_idx][:, -1:].sigmoid())
-            loss_bce_neg = F.binary_cross_entropy(neg_actions, target_flatten[neg_idx][:, :-1], reduction='none')
-            loss_bce_neg = loss_bce_neg.sum() / max(target_classes.sum(), 1)
-            # -------------------------------------------------------------------------------------------------------
-
-            loss_act = loss_bce_pos + loss_bce_neg * self.HOI_eos_coef
-
-        if False:
-            logits = src_actions.sigmoid()
-            loss_bce = F.binary_cross_entropy(logits[..., self.valid_ids], target_classes[..., self.valid_ids], reduction='none')
-            p_t = logits[..., self.valid_ids] * target_classes[..., self.valid_ids] + (1 - logits[..., self.valid_ids]) * (1 - target_classes[..., self.valid_ids])
-            loss_bce = ((1-p_t)**2 * loss_bce)
-            alpha_t = 0.25 * target_classes[..., self.valid_ids] + (1 - 0.25) * (1 - target_classes[..., self.valid_ids])
-            loss_focal = alpha_t * loss_bce
-            loss_act = loss_focal.sum() / max(target_classes.sum(), 1)
+        # BCE Loss -----------------------------------------------------------------------------------------------------------------------
+        logits = src_actions.sigmoid()
+        loss_bce = F.binary_cross_entropy(logits[..., self.valid_ids], target_classes[..., self.valid_ids], reduction='none')
+        p_t = logits[..., self.valid_ids] * target_classes[..., self.valid_ids] + (1 - logits[..., self.valid_ids]) * (1 - target_classes[..., self.valid_ids])
+        loss_bce = ((1-p_t)**2 * loss_bce)
+        alpha_t = 0.25 * target_classes[..., self.valid_ids] + (1 - 0.25) * (1 - target_classes[..., self.valid_ids])
+        loss_focal = alpha_t * loss_bce
+        loss_act = loss_focal.sum() / max(target_classes.sum(), 1)
+        # --------------------------------------------------------------------------------------------------------------------------------
 
         losses = {'loss_act': loss_act}
 
         return losses
+
 
     def _get_src_permutation_idx(self, indices):
         # permute predictions following indices
@@ -197,6 +179,7 @@ class SetCriterion(nn.Module):
         tgt_idx = torch.cat([tgt for (_, tgt) in indices])
         return batch_idx, tgt_idx
 
+
     # *****************************************************************************
     # >>> DETR Losses
     def get_loss(self, loss, outputs, targets, indices, num_boxes, **kwargs):
@@ -208,6 +191,7 @@ class SetCriterion(nn.Module):
         assert loss in loss_map, f'do you really want to compute {loss} loss?'
         return loss_map[loss](outputs, targets, indices, num_boxes, **kwargs)
 
+
     # >>> HOTR Losses
     def get_HOI_loss(self, loss, outputs, targets, indices, num_boxes, **kwargs):
         loss_map = {
@@ -217,6 +201,7 @@ class SetCriterion(nn.Module):
         assert loss in loss_map, f'do you really want to compute {loss} loss?'
         return loss_map[loss](outputs, targets, indices, num_boxes, **kwargs)
     # *****************************************************************************
+
 
     def forward(self, outputs, targets, log=False):
         """ This performs the loss computation.
