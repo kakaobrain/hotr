@@ -39,28 +39,27 @@ $ ln -s [:COCO_DIR] coco/images # COCO_DIR contains images of train2014 & val201
 $ python script_pick_annotations.py [:COCO_DIR]/annotations
 
 # HICO-DET setup
-$ tar -zxvf hico_20160224_det.tar.gz
-$ mv hico_20160224_dewt
+$ tar -zxvf hico_20160224_det.tar.gz # move the unballed folder under the pulled repository
 
 # dataset setup
 HOTR
- |─ v-coco
- │   |─ data
- |   |   |─ instances_vcoco_all_2014.json
- |   |   :
+ │─ v-coco
+ │   │─ data
+ │   │   │─ instances_vcoco_all_2014.json
+ │   │   :
  │   └─ coco
- |       |─ images
- |       |   |─ train2014
- |       |   |   |─ COCO_train2014_000000000009.jpg
- |       |   |   :
- |       |   └─ val2014
- |       |       |─ COCO_val2014_000000000042.jpg
+ │       │─ images
+ │       │   │─ train2014
+ │       │   │   │─ COCO_train2014_000000000009.jpg
+ │       │   │   :
+ │       │   └─ val2014
+ │       │       │─ COCO_val2014_000000000042.jpg
  :       :       :
- |─ hico_20160224_det
- |       |─ annotations
- |       |   |─ trainval_hico.json
- |       |   |─ test_hico.json
- |       |   └─ corre_hico.npy
+ │─ hico_20160224_det
+ │       │─ annotations
+ │       │   │─ trainval_hico.json
+ │       │   │─ test_hico.json
+ │       │   └─ corre_hico.npy
  :       :
 ```
 
