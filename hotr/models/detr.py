@@ -118,11 +118,13 @@ def build(args):
         hoi_losses = []
         hoi_losses.append('pair_labels')
         hoi_losses.append('pair_actions')
+        if args.dataset_file == 'hico-det': hoi_losses.append('pair_targets')
         
         hoi_weight_dict={}
-        hoi_weight_dict['loss_hidx'] = args.hoi_idx_loss_coef * 2
+        hoi_weight_dict['loss_hidx'] = args.hoi_idx_loss_coef
         hoi_weight_dict['loss_oidx'] = args.hoi_idx_loss_coef
         hoi_weight_dict['loss_act'] = args.hoi_act_loss_coef
+        if args.dataset_file == 'hico-det': hoi_weight_dict['loss_tgt'] = args.hoi_tgt_loss_coef
         if args.hoi_aux_loss:
             hoi_aux_weight_dict = {}
             for i in range(args.hoi_dec_layers):
@@ -134,7 +136,9 @@ def build(args):
                                  HOI_losses=hoi_losses, HOI_matcher=hoi_matcher, args=args)
 
         interaction_transformer = build_hoi_transformer(args) # if (args.share_enc and args.pretrained_dec) else None
- 
+
+        kwargs = {}
+        if args.dataset_file == 'hico-det': kwargs['return_obj_class'] = args.valid_obj_ids
         model = HOTR(
             detr=model,
             num_hoi_queries=args.num_hoi_queries,
@@ -144,12 +148,14 @@ def build(args):
             share_enc=args.share_enc,
             pretrained_dec=args.pretrained_dec,
             temperature=args.temperature,
-            hoi_aux_loss=args.hoi_aux_loss
+            hoi_aux_loss=args.hoi_aux_loss,
+            **kwargs # only return verb class for HICO-DET dataset
         )
+        postprocessors = {'hoi': PostProcess(args.HOIDet)}
     else:
         criterion = SetCriterion(args.num_classes, matcher=matcher, weight_dict=weight_dict,
                                  eos_coef=args.eos_coef, losses=losses)
+        postprocessors = {'bbox': PostProcess(args.HOIDet)}
     criterion.to(device)
-    postprocessors = {'bbox': PostProcess(args.HOIDet)}
 
     return model, criterion, postprocessors

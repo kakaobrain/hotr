@@ -21,10 +21,11 @@ class HungarianPairMatcher(nn.Module):
         """
         super().__init__()
         self.cost_action = args.set_cost_act
-        self.cost_hbox = args.set_cost_idx
-        self.cost_obox = args.set_cost_idx
+        self.cost_hbox = self.cost_obox = args.set_cost_idx
+        self.cost_target = args.set_cost_tgt
         self.log_printer = args.wandb
         self.is_vcoco = (args.dataset_file == 'vcoco')
+        self.is_hico = (args.dataset_file == 'hico-det')
         if self.is_vcoco:
             self.valid_ids = args.valid_ids
             self.invalid_ids = args.invalid_ids
@@ -69,6 +70,7 @@ class HungarianPairMatcher(nn.Module):
         return_list = []
         if self.log_printer and log:
             log_dict = {'h_cost': [], 'o_cost': [], 'act_cost': []}
+            if self.is_hico: log_dict['tgt_cost'] = []
 
         for batch_idx in range(bs):
             tgt_bbox = targets[batch_idx]["boxes"] # (num_boxes, 4)
@@ -81,24 +83,33 @@ class HungarianPairMatcher(nn.Module):
                 targets[batch_idx]["pair_actions"] = targets[batch_idx]["pair_actions"][keep_idx]
                 targets[batch_idx]["pair_targets"] = targets[batch_idx]["pair_targets"][keep_idx]
 
-            tgt_pbox = targets[batch_idx]["pair_boxes"] # (num_pair_boxes, 8)
-            tgt_act = targets[batch_idx]["pair_actions"] # (num_pair_boxes, 29)
-            tgt_tgt = targets[batch_idx]["pair_targets"] # (num_pair_boxes)
+                tgt_pbox = targets[batch_idx]["pair_boxes"] # (num_pair_boxes, 8)
+                tgt_act = targets[batch_idx]["pair_actions"] # (num_pair_boxes, 29)
+                tgt_tgt = targets[batch_idx]["pair_targets"] # (num_pair_boxes)
 
-            tgt_hbox = tgt_pbox[:, :4] # (num_pair_boxes, 4)
-            tgt_obox = tgt_pbox[:, 4:] # (num_pair_boxes, 4)
+                tgt_hbox = tgt_pbox[:, :4] # (num_pair_boxes, 4)
+                tgt_obox = tgt_pbox[:, 4:] # (num_pair_boxes, 4)
+            elif self.is_hico:
+                tgt_act = targets[batch_idx]["pair_actions"] # (num_pair_boxes, 117)
+                tgt_tgt = targets[batch_idx]["pair_targets"] # (num_pair_boxes)
+
+                tgt_hbox = targets[batch_idx]["sub_boxes"] # (num_pair_boxes, 4)
+                tgt_obox = targets[batch_idx]["obj_boxes"] # (num_pair_boxes, 4)
 
             # find which gt boxes match the h, o boxes in the pair
-            hbox_with_ones = torch.cat([tgt_hbox, torch.ones((tgt_hbox.shape[0], 1)).to(tgt_hbox.device)], dim=1)
-            obox_with_ones = torch.cat([tgt_obox, tgt_tgt.unsqueeze(-1)], dim=1)
-            obox_with_ones[obox_with_ones[:, :4].sum(dim=1) == -4, -1] = -1 # turn the class of occluded objects to -1
+            if self.is_vcoco:
+                hbox_with_cls = torch.cat([tgt_hbox, torch.ones((tgt_hbox.shape[0], 1)).to(tgt_hbox.device)], dim=1)
+            elif self.is_hico:
+                hbox_with_cls = torch.cat([tgt_hbox, torch.zeros((tgt_hbox.shape[0], 1)).to(tgt_hbox.device)], dim=1)
+            obox_with_cls = torch.cat([tgt_obox, tgt_tgt.unsqueeze(-1)], dim=1)
+            obox_with_cls[obox_with_cls[:, :4].sum(dim=1) == -4, -1] = -1 # turn the class of occluded objects to -1
 
             bbox_with_cls = torch.cat([tgt_bbox, tgt_cls.unsqueeze(-1)], dim=1)
             bbox_with_cls, k_idx, bbox_idx = self.reduce_redundant_gt_box(bbox_with_cls, indices[batch_idx])
             bbox_with_cls = torch.cat((bbox_with_cls, torch.as_tensor([-1.]*5).unsqueeze(0).to(tgt_cls.device)), dim=0)
 
-            cost_hbox = torch.cdist(hbox_with_ones, bbox_with_cls, p=1)
-            cost_obox = torch.cdist(obox_with_ones, bbox_with_cls, p=1)
+            cost_hbox = torch.cdist(hbox_with_cls, bbox_with_cls, p=1)
+            cost_obox = torch.cdist(obox_with_cls, bbox_with_cls, p=1)
 
             # find which gt boxes matches which prediction in K
             h_match_indices = torch.nonzero(cost_hbox == 0, as_tuple=False) # (num_hbox, num_boxes)
@@ -114,7 +125,7 @@ class HungarianPairMatcher(nn.Module):
                 hbox_idx, H_bbox_idx = h_match_idx
                 obox_idx, O_bbox_idx = o_match_idx
                 if O_bbox_idx == (len(bbox_with_cls)-1): # if the object class is -1
-                    O_bbox_idx = H_bbox_idx
+                    O_bbox_idx = H_bbox_idx # happens in V-COCO, the target object may not appear
 
                 GT_idx_for_H = (bbox_idx == H_bbox_idx).nonzero(as_tuple=False).squeeze(-1)
                 query_idx_for_H = k_idx[GT_idx_for_H]
@@ -125,13 +136,18 @@ class HungarianPairMatcher(nn.Module):
                 tgt_oids.append(query_idx_for_O)
 
             # check if empty
-            if len(tgt_hids) == 0: tgt_hids.append(torch.as_tensor([-1]))
-            if len(tgt_oids) == 0: tgt_oids.append(torch.as_tensor([-1]))
+            if len(tgt_hids) == 0: tgt_hids.append(torch.as_tensor([-1])) # we later ignore the label -1
+            if len(tgt_oids) == 0: tgt_oids.append(torch.as_tensor([-1])) # we later ignore the label -1
 
             tgt_sum = (tgt_act.sum(dim=-1)).unsqueeze(0)
+            flag = False
             if tgt_act.shape[0] == 0:
                 tgt_act = torch.zeros((1, tgt_act.shape[1])).to(targets[batch_idx]["pair_actions"].device)
                 targets[batch_idx]["pair_actions"] = torch.zeros((1, targets[batch_idx]["pair_actions"].shape[1])).to(targets[batch_idx]["pair_actions"].device)
+                if self.is_hico:
+                    pad_tgt = -1 # outputs["pred_obj_logits"].shape[-1]-1
+                    tgt_tgt = torch.tensor([pad_tgt]).to(targets[batch_idx]["pair_targets"])
+                    targets[batch_idx]["pair_targets"] = torch.tensor([pad_tgt]).to(targets[batch_idx]["pair_targets"].device)
                 tgt_sum = (tgt_act.sum(dim=-1) + 1).unsqueeze(0)
 
             # Concat target label
@@ -141,8 +157,11 @@ class HungarianPairMatcher(nn.Module):
             out_hprob = outputs["pred_hidx"][batch_idx].softmax(-1)
             out_oprob = outputs["pred_oidx"][batch_idx].softmax(-1)
             out_act = outputs["pred_actions"][batch_idx].clone()
-            out_act[..., self.valid_ids] = 0
-            out_act = out_act.sigmoid()[:, :-1] * (1-out_act.sigmoid()[:, -1:])
+            if self.is_vcoco: out_act[..., self.invalid_ids] = 0
+            if self.is_hico:
+                out_tgt = outputs["pred_obj_logits"][batch_idx].softmax(-1)
+                out_tgt[..., -1] = 0 # don't get cost for no-object
+            tgt_act = torch.cat([tgt_act, torch.zeros(tgt_act.shape[0]).unsqueeze(-1).to(tgt_act.device)], dim=-1)
 
             cost_hclass = -out_hprob[:, tgt_hids] # [batch_size * num_queries, detr.num_queries+1]
             cost_oclass = -out_oprob[:, tgt_oids] # [batch_size * num_queries, detr.num_queries+1]
@@ -156,20 +175,27 @@ class HungarianPairMatcher(nn.Module):
             act_cost = self.cost_action * cost_action
 
             C = h_cost + o_cost + act_cost
+            if self.is_hico:
+                cost_target = -out_tgt[:, tgt_tgt]
+                tgt_cost = self.cost_target * cost_target
+                C += tgt_cost
             C = C.view(num_queries, -1).cpu()
 
             return_list.append(linear_sum_assignment(C))
-            targets[batch_idx]["h_labels"] = tgt_hids.to(tgt_pbox.device)
-            targets[batch_idx]["o_labels"] = tgt_oids.to(tgt_pbox.device)
+            targets[batch_idx]["h_labels"] = tgt_hids.to(tgt_hbox.device)
+            targets[batch_idx]["o_labels"] = tgt_oids.to(tgt_obox.device)
+            log_act_cost = torch.zeros([1]).to(tgt_act.device) if tgt_act.shape[0] == 0 else act_cost.min(dim=0)[0].mean()
 
             if self.log_printer and log:
                 log_dict['h_cost'].append(h_cost.min(dim=0)[0].mean())
                 log_dict['o_cost'].append(o_cost.min(dim=0)[0].mean())
                 log_dict['act_cost'].append(act_cost.min(dim=0)[0].mean())
+                if self.is_hico: log_dict['tgt_cost'].append(tgt_cost.min(dim=0)[0].mean())
         if self.log_printer and log:
             log_dict['h_cost'] = torch.stack(log_dict['h_cost']).mean()
             log_dict['o_cost'] = torch.stack(log_dict['o_cost']).mean()
             log_dict['act_cost'] = torch.stack(log_dict['act_cost']).mean()
+            if self.is_hico: log_dict['tgt_cost'] = torch.stack(log_dict['tgt_cost']).mean()
             if utils.get_rank() == 0: wandb.log(log_dict)
         return [(torch.as_tensor(i, dtype=torch.int64), torch.as_tensor(j, dtype=torch.int64)) for i, j in return_list], targets
 

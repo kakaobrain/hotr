@@ -21,7 +21,8 @@ class HOTR(nn.Module):
                  share_enc,
                  pretrained_dec,
                  temperature,
-                 hoi_aux_loss):
+                 hoi_aux_loss,
+                 return_obj_class=None):
         super().__init__()
 
         # * Instance Transformer ---------------
@@ -40,6 +41,11 @@ class HOTR(nn.Module):
         self.O_Pointer_embed   = MLP(hidden_dim, hidden_dim, hidden_dim, 3)
         self.action_embed = nn.Linear(hidden_dim, num_actions+1)
         # --------------------------------------------------------------------
+
+        # * HICO-DET FFN heads ---------------------------------------------
+        self.return_obj_class = (return_obj_class is not None)
+        if return_obj_class: self._valid_obj_ids = return_obj_class + [return_obj_class[-1]+1]
+        # ------------------------------------------------------------------
 
         # * Transformer Options ---------------------------------------------
         self.interaction_transformer = interaction_transformer
@@ -98,6 +104,13 @@ class HOTR(nn.Module):
         hoi_recognition_time = max(hoi_detection_time - object_detection_time, 0)
         # -------------------------------------------------------------------
 
+        # [Target Classification]
+        if self.return_obj_class:
+            detr_logits = outputs_class[-1, ..., self._valid_obj_ids]
+            o_indices = [output_oidx.max(-1)[-1] for output_oidx in outputs_oidx]
+            obj_logit_stack = [torch.stack([detr_logits[batch_, o_idx, :] for batch_, o_idx in enumerate(o_indice)], 0) for o_indice in o_indices]
+            outputs_obj_class = obj_logit_stack
+
         out = {
             "pred_logits": outputs_class[-1],
             "pred_boxes": outputs_coord[-1],
@@ -107,8 +120,13 @@ class HOTR(nn.Module):
             "hoi_recognition_time": hoi_recognition_time,
         }
 
+        if self.return_obj_class: out["pred_obj_logits"] = outputs_obj_class[-1]
+
         if self.hoi_aux_loss: # auxiliary loss
-            out['hoi_aux_outputs'] = self._set_aux_loss(outputs_class, outputs_coord, outputs_hidx, outputs_oidx, outputs_action)
+            out['hoi_aux_outputs'] = \
+                self._set_aux_loss_with_tgt(outputs_class, outputs_coord, outputs_hidx, outputs_oidx, outputs_action, outputs_obj_class) \
+                if self.return_obj_class else \
+                self._set_aux_loss(outputs_class, outputs_coord, outputs_hidx, outputs_oidx, outputs_action)
 
         return out
 
@@ -121,3 +139,14 @@ class HOTR(nn.Module):
                     outputs_hidx[:-1],
                     outputs_oidx[:-1],
                     outputs_action[:-1])]
+
+    @torch.jit.unused
+    def _set_aux_loss_with_tgt(self, outputs_class, outputs_coord, outputs_hidx, outputs_oidx, outputs_action, outputs_tgt):
+        return [{'pred_logits': a,  'pred_boxes': b, 'pred_hidx': c, 'pred_oidx': d, 'pred_actions': e, 'pred_obj_logits': f}
+                for a, b, c, d, e, f in zip(
+                    outputs_class[-1:].repeat((outputs_action.shape[0], 1, 1, 1)),
+                    outputs_coord[-1:].repeat((outputs_action.shape[0], 1, 1, 1)),
+                    outputs_hidx[:-1],
+                    outputs_oidx[:-1],
+                    outputs_action[:-1],
+                    outputs_tgt[:-1])]
