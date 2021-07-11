@@ -63,9 +63,9 @@ HOTR
  :       :
 ```
 
-If you wish to download the v-coco on our own directory, simply change the 'data_path' argument to the directory you have downloaded the v-coco dataset.
+If you wish to download the datasets on our own directory, simply change the 'data_path' argument to the directory you have downloaded the datasets.
 ```bash
---data_path [:your_own_directory]/v-coco
+--data_path [:your_own_directory]/[v-coco/hico_20160224_det]
 ```
 
 ## 3. How to Train/Test HOTR on V-COCO dataset
@@ -94,7 +94,7 @@ multi_test:
   python -m torch.distributed.launch \
 		--nproc_per_node=8 \
     ...
-    --resume checkpoints/vcoco/q16.pth # download the q16.pth as described below.
+    --resume checkpoints/[vcoco/hico-det]/[vcoco/hico]_q16.pth # download the q16.pth as described below.
 ```
 In order to use our provided weights, you can download the weights from this [link](https://arena.kakaocdn.net/brainrepo/hotr/q16.pth).
 Then, pass the directory of the downloaded file (for example, we put the weights under the directory checkpoints/vcoco/q16.pth) to the 'resume' argument as well.
@@ -114,7 +114,7 @@ This is obtained "without" applying any priors on the scores (see [iCAN](https:/
 |  100  |     16    |      23.76      |  22.34 |   24.19  | [download](https://arena.kakaocdn.net/brainrepo/hotr/hico_q16.pth)  |
 
 If you want to use pretrained weights for inference, download the pretrained weights (from the above link) under `checkpoints/vcoco/` or `checkpoints/hico-det/` and match the interaction query argument as described in the weight file (others are already set in the Makefile).
-Our evaluation code follows the exact implementations of the official python v-coco evaluation.
+Our evaluation code follows the exact implementations of the official python evaluation.
 You can test the weights by the command below (e.g., the weight file is named as [vcoco/hico]_q16.pth, which denotes that the model uses 16 interaction queries).
 
 ```bash
