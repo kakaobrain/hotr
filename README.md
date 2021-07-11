@@ -68,33 +68,33 @@ If you wish to download the datasets on our own directory, simply change the 'da
 --data_path [:your_own_directory]/[v-coco/hico_20160224_det]
 ```
 
-## 3. How to Train/Test HOTR on V-COCO dataset
+## 3. How to Train/Test HOTR
 For training, you can either run on a single GPU or multiple GPUs.
 ```bash
 # single-gpu training / testing
-$ make single_[train/test]
+$ make [vcoco/hico]_single_[train/test]
 
 # multi-gpu training / testing (8 GPUs)
-$ make multi_[train/test]
+$ make [vcoco/hico]_multi_[train/test]
 ```
 
-For testing, you can either use your own trained weights and pass the directory to the 'resume' argument, or use our provided weights.
+For testing, you can either use your own trained weights and pass the group name and run name to the 'resume' argument, or use our provided weights.
 Below is the example of how you should edit the Makefile.
 ```bash
 # [Makefile]
 # Testing your own trained weights
-multi_test:
+[vcoco/hico]_multi_test:
   python -m torch.distributed.launch \
 		--nproc_per_node=8 \
     ...
-    --resume checkpoints/vcoco/KakaoBrain/multi_run_000001/best.pth # the best performing checkpoint is saved in this format
+    --resume checkpoints/[vcoco/hico_det]/[:group_name]/[:run_name]/best.pth # the best performing checkpoint is saved in this format
 
 # Testing our provided trained weights
-multi_test:
+[vcoco/hico]_multi_test:
   python -m torch.distributed.launch \
 		--nproc_per_node=8 \
     ...
-    --resume checkpoints/[vcoco/hico-det]/[vcoco/hico]_q16.pth # download the q16.pth as described below.
+    --resume checkpoints/[vcoco/hico_det]/[vcoco/hico]_q16.pth # download the q16.pth as described below.
 ```
 In order to use our provided weights, you can download the weights from this [link](https://arena.kakaocdn.net/brainrepo/hotr/q16.pth).
 Then, pass the directory of the downloaded file (for example, we put the weights under the directory checkpoints/vcoco/q16.pth) to the 'resume' argument as well.
