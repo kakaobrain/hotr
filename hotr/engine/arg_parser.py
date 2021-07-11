@@ -15,7 +15,7 @@ def get_args_parser():
     parser.add_argument('--batch_size', default=2, type=int)
     parser.add_argument('--weight_decay', default=1e-4, type=float)
     parser.add_argument('--epochs', default=100, type=int)
-    parser.add_argument('--lr_drop', default=70, type=int)
+    parser.add_argument('--lr_drop', default=80, type=int)
     parser.add_argument('--clip_max_norm', default=0.1, type=float,
                         help='gradient clipping max norm')
 
@@ -97,11 +97,14 @@ def get_args_parser():
                         help="IDX coefficient in the matching cost")
     parser.add_argument('--set_cost_act', default=1, type=float,
                         help="Action coefficient in the matching cost")
+    parser.add_argument('--set_cost_tgt', default=1, type=float,
+                        help="Target coefficient in the matching cost")
 
     # * HOTR Loss coefficients
-    parser.add_argument('--temperature', default=0.08, type=float, help="temperature")
+    parser.add_argument('--temperature', default=0.05, type=float, help="temperature")
     parser.add_argument('--hoi_idx_loss_coef', default=1, type=float)
     parser.add_argument('--hoi_act_loss_coef', default=1, type=float)
+    parser.add_argument('--hoi_tgt_loss_coef', default=1, type=float)
     parser.add_argument('--hoi_eos_coef', default=0.1, type=float, help="Relative classification weight of the no-object class")
 
     # * dataset parameters
