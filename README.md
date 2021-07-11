@@ -69,7 +69,7 @@ If you wish to download the datasets on our own directory, simply change the 'da
 ```
 
 ## 3. How to Train/Test HOTR
-For training, you can either run on a single GPU or multiple GPUs.
+For both training and testing, you can either run on a single GPU or multiple GPUs.
 ```bash
 # single-gpu training / testing
 $ make [vcoco/hico]_single_[train/test]
@@ -96,8 +96,8 @@ Below is the example of how you should edit the Makefile.
     ...
     --resume checkpoints/[vcoco/hico_det]/[vcoco/hico]_q16.pth # download the q16.pth as described below.
 ```
-In order to use our provided weights, you can download the weights from this [link](https://arena.kakaocdn.net/brainrepo/hotr/q16.pth).
-Then, pass the directory of the downloaded file (for example, we put the weights under the directory checkpoints/vcoco/q16.pth) to the 'resume' argument as well.
+In order to use our provided weights, you can download the weights provided below.
+Then, pass the directory of the downloaded file (for example, to test our pre-trained weights on the vcoco dataset, we put the downloaded weights under the directory checkpoints/vcoco/vcoco_q16.pth) to the 'resume' argument.
 
 ## 4. Results
 Here, we provide improved results of V-COCO Scenario 1 (58.9 mAP, 0.5ms) and HICO-DET Default(Full) (23.76 mAP) from the version of our initial submission (55.2 mAP & 23.46 mAP, 0.9ms).
