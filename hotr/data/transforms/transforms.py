@@ -37,10 +37,14 @@ def crop(image, target, region):
         target["area"] = area
         fields.append("boxes")
 
-    if "pair_boxes" in target:
-        pair_boxes = target["pair_boxes"]
-        hboxes = pair_boxes[:, :4]
-        oboxes = pair_boxes[:, 4:]
+    if "pair_boxes" in target or ("sub_boxes" in target and "obj_boxes" in target):
+        if "pair_boxes" in target:
+            pair_boxes = target["pair_boxes"]
+            hboxes = pair_boxes[:, :4]
+            oboxes = pair_boxes[:, 4:]
+        if ("sub_boxes" in target and "obj_boxes" in target):
+            hboxes = target["sub_boxes"]
+            oboxes = target["obj_boxes"]
 
         cropped_hboxes = hboxes - torch.as_tensor([j, i, j, i])
         cropped_hboxes = torch.min(cropped_hboxes.reshape(-1, 2, 2), max_size)
