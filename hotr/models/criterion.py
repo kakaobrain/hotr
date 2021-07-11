@@ -42,15 +42,27 @@ class SetCriterion(nn.Module):
 
         if args:
             self.HOI_eos_coef = args.hoi_eos_coef
-            self.invalid_ids = args.invalid_ids
-            self.valid_ids = np.concatenate((args.valid_ids,[-1]), axis=0) # no interaction
+            if args.dataset_file == 'vcoco':
+                self.invalid_ids = args.invalid_ids
+                self.valid_ids = np.concatenate((args.valid_ids,[-1]), axis=0) # no interaction
+            elif args.dataset_file == 'hico-det':
+                self.invalid_ids = []
+                self.valid_ids = list(range(num_actions)) + [-1]
+
+                # for targets
+                self.num_tgt_classes = len(args.valid_obj_ids)
+                tgt_empty_weight = torch.ones(self.num_tgt_classes + 1)
+                tgt_empty_weight[-1] = self.HOI_eos_coef
+                self.register_buffer('tgt_empty_weight', tgt_empty_weight)
         self.dataset_file = args.dataset_file
         
         empty_weight = torch.ones(self.num_classes + 1)
         empty_weight[-1] = eos_coef
         self.register_buffer('empty_weight', empty_weight)
 
-
+    #######################################################################################################################
+    # * DETR Losses
+    #######################################################################################################################
     def loss_labels(self, outputs, targets, indices, num_boxes, log=True):
         """Classification loss (NLL)
         targets dicts must contain the key "labels" containing a tensor of dim [nb_target_boxes]
@@ -71,7 +83,6 @@ class SetCriterion(nn.Module):
             losses['class_error'] = 100 - accuracy(src_logits[idx], target_classes_o)[0]
         return losses
 
-
     @torch.no_grad()
     def loss_cardinality(self, outputs, targets, indices, num_boxes):
         """ Compute the cardinality error, ie the absolute error in the number of predicted non-empty boxes
@@ -85,7 +96,6 @@ class SetCriterion(nn.Module):
         card_err = F.l1_loss(card_pred.float(), tgt_lengths.float())
         losses = {'cardinality_error': card_err}
         return losses
-
 
     def loss_boxes(self, outputs, targets, indices, num_boxes):
         """Compute the losses related to the bounding boxes, the L1 regression loss and the GIoU loss
@@ -108,6 +118,10 @@ class SetCriterion(nn.Module):
         losses['loss_giou'] = loss_giou.sum() / num_boxes
         return losses
 
+
+    #######################################################################################################################
+    # * HOTR Losses
+    #######################################################################################################################
     # >>> HOI Losses 1 : HO Pointer
     def loss_pair_labels(self, outputs, targets, hoi_indices, num_boxes, log=False):
         assert ('pred_hidx' in outputs and 'pred_oidx' in outputs)
@@ -135,9 +149,8 @@ class SetCriterion(nn.Module):
 
         return losses
 
-
     # >>> HOI Losses 2 : pair actions
-    def loss_pair_actions(self, outputs, targets, hoi_indices, num_boxes, loss_type='interactiveness'):
+    def loss_pair_actions(self, outputs, targets, hoi_indices, num_boxes):
         assert 'pred_actions' in outputs
         src_actions = outputs['pred_actions']
         idx = self._get_src_permutation_idx(hoi_indices)
@@ -159,13 +172,32 @@ class SetCriterion(nn.Module):
         loss_bce = ((1-p_t)**2 * loss_bce)
         alpha_t = 0.25 * target_classes[..., self.valid_ids] + (1 - 0.25) * (1 - target_classes[..., self.valid_ids])
         loss_focal = alpha_t * loss_bce
-        loss_act = loss_focal.sum() / max(target_classes.sum(), 1)
+        loss_act = loss_focal.sum() / max(target_classes[..., self.valid_ids[:-1]].sum(), 1)
         # --------------------------------------------------------------------------------------------------------------------------------
 
         losses = {'loss_act': loss_act}
 
         return losses
 
+    # HOI Losses 3 : action targets
+    def loss_pair_targets(self, outputs, targets, hoi_indices, num_interactions, log=True):
+        assert 'pred_obj_logits' in outputs
+        src_logits = outputs['pred_obj_logits']
+        idx = self._get_src_permutation_idx(hoi_indices)
+
+        target_classes_o = torch.cat([t['pair_targets'][J] for t, (_, J) in zip(targets, hoi_indices)])
+        pad_tgt = -1 # src_logits.shape[2]-1
+        target_classes = torch.full(src_logits.shape[:2], pad_tgt, dtype=torch.int64, device=src_logits.device)
+        target_classes[idx] = target_classes_o
+        
+        loss_obj_ce = F.cross_entropy(src_logits.transpose(1, 2), target_classes, self.tgt_empty_weight, ignore_index=-1)
+        losses = {'loss_tgt': loss_obj_ce}
+
+        if log:
+            ignore_idx = (target_classes_o != -1)
+            losses['obj_class_error'] = 100 - accuracy(src_logits[idx][ignore_idx, :-1], target_classes_o[ignore_idx])[0]
+            # losses['obj_class_error'] = 100 - accuracy(src_logits[idx], target_classes_o)[0]
+        return losses
 
     def _get_src_permutation_idx(self, indices):
         # permute predictions following indices
@@ -179,7 +211,6 @@ class SetCriterion(nn.Module):
         tgt_idx = torch.cat([tgt for (_, tgt) in indices])
         return batch_idx, tgt_idx
 
-
     # *****************************************************************************
     # >>> DETR Losses
     def get_loss(self, loss, outputs, targets, indices, num_boxes, **kwargs):
@@ -191,17 +222,16 @@ class SetCriterion(nn.Module):
         assert loss in loss_map, f'do you really want to compute {loss} loss?'
         return loss_map[loss](outputs, targets, indices, num_boxes, **kwargs)
 
-
     # >>> HOTR Losses
     def get_HOI_loss(self, loss, outputs, targets, indices, num_boxes, **kwargs):
         loss_map = {
             'pair_labels': self.loss_pair_labels,
             'pair_actions': self.loss_pair_actions
         }
+        if self.dataset_file == 'hico-det': loss_map['pair_targets'] = self.loss_pair_targets
         assert loss in loss_map, f'do you really want to compute {loss} loss?'
         return loss_map[loss](outputs, targets, indices, num_boxes, **kwargs)
     # *****************************************************************************
-
 
     def forward(self, outputs, targets, log=False):
         """ This performs the loss computation.
@@ -250,14 +280,18 @@ class SetCriterion(nn.Module):
         if self.HOI_losses is not None:
             for loss in self.HOI_losses:
                 losses.update(self.get_HOI_loss(loss, outputs, hoi_targets, hoi_indices, num_boxes))
+            # if self.dataset_file == 'hico-det': losses['loss_oidx'] += losses['loss_tgt']
 
             if 'hoi_aux_outputs' in outputs:
                 for i, aux_outputs in enumerate(outputs['hoi_aux_outputs']):
                     input_targets = [copy.deepcopy(target) for target in targets]
                     hoi_indices, targets_for_aux = self.HOI_matcher(aux_outputs, input_targets, indices, log)
                     for loss in self.HOI_losses:
-                        l_dict = self.get_HOI_loss(loss, aux_outputs, hoi_targets, hoi_indices, num_boxes)
+                        kwargs = {}
+                        if loss == 'pair_targets': kwargs = {'log': False} # Logging is enabled only for the last layer
+                        l_dict = self.get_HOI_loss(loss, aux_outputs, hoi_targets, hoi_indices, num_boxes, **kwargs)
                         l_dict = {k + f'_{i}': v for k, v in l_dict.items()}
                         losses.update(l_dict)
+                    # if self.dataset_file == 'hico-det': losses[f'loss_oidx_{i}'] += losses[f'loss_tgt_{i}']
 
         return losses

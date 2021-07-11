@@ -115,7 +115,7 @@ This is obtained "without" applying any priors on the scores (see [iCAN](https:/
 
 If you want to use pretrained weights for inference, download the pretrained weights (from the above link) under `checkpoints/vcoco/` or `checkpoints/hico-det/` and match the interaction query argument as described in the weight file (others are already set in the Makefile).
 Our evaluation code follows the exact implementations of the official python v-coco evaluation.
-You can test the weights by the command below (e.g., the weight file is named as q16.pth, which denotes that the model uses 16 interaction queries).
+You can test the weights by the command below (e.g., the weight file is named as [vcoco/hico]_q16.pth, which denotes that the model uses 16 interaction queries).
 
 ```bash
 # Inference for V-COCO (8 GPUs)
@@ -133,7 +133,7 @@ python -m torch.distributed.launch \
     --eval \
     --dataset_file vcoco \
     --data_path v-coco \
-    --resume checkpoints/vcoco/[:query_num].pth
+    --resume checkpoints/vcoco/vcoco_[:query_num].pth
 
 # Inference for HICO-DET (8 GPUs)
 python -m torch.distributed.launch \
@@ -150,7 +150,7 @@ python -m torch.distributed.launch \
     --eval \
     --dataset_file hico-det \
     --data_path hico_20160224_det \
-    --resume checkpoints/hico_det/[:query_num].pth
+    --resume checkpoints/hico_det/hico_[:query_num].pth
 ```
 
 The results will appear as the following:
@@ -188,7 +188,7 @@ Evaluation Inference (V-COCO)  [308/308]  eta: 0:00:00    time: 0.2063  data: 0.
                kick_obj: AP = 73.92 (#pos = 180)
                read_obj: AP = 44.81 (#pos = 111)
         snowboard_instr: AP = 81.25 (#pos = 277)
-| mAP(role scenario_1): 58.94
+│ mAP(role scenario_1): 58.94
 ----------------------------------------------------
 
 # HICO-DET
@@ -196,10 +196,10 @@ Evaluation Inference (V-COCO)  [308/308]  eta: 0:00:00    time: 0.2063  data: 0.
 Evaluation Inference (HICO-DET)  [597/597]  eta: 0:00:00    time: 0.2099  data: 0.0109  max mem: 1272
 [stats] Total Time (test) : 0:02:07 (0.2140 s / it)
 [stats] HOI Recognition Time (avg) : 0.9025 ms
-[stats] Score Matrix Generation completed!!
-| mAP (full)            : 23.76
-| mAP (rare)            : 22.34
-| mAP (non-rare)        : 24.19
+[stats] Score Matrix Generation completed
+│ mAP (full)            : 23.76
+│ mAP (rare)            : 22.34
+│ mAP (non-rare)        : 24.19
 ```
 The HOI recognition time is calculated by the end-to-end inference time excluding the object detection time.
 
