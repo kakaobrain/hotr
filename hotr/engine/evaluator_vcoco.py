@@ -38,7 +38,7 @@ def vcoco_evaluate(model, criterion, postprocessors, data_loader, device, output
         loss_dict_reduced = utils.reduce_dict(loss_dict) # ddp gathering
 
         orig_target_sizes = torch.stack([t["orig_size"] for t in targets], dim=0)
-        results = postprocessors['bbox'](outputs, orig_target_sizes, threshold=thr, is_vcoco=True)
+        results = postprocessors['hoi'](outputs, orig_target_sizes, threshold=thr, dataset='vcoco')
         targets = process_target(targets, orig_target_sizes)
         hoi_recognition_time.append(results[0]['hoi_recognition_time'] * 1000)
 
