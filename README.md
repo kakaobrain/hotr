@@ -29,6 +29,8 @@ $ pip install wandb
 ## 2. HOI dataset setup
 Our current version of HOTR supports the experiments for both [V-COCO](https://github.com/s-gupta/v-coco) and [HICO-DET](https://drive.google.com/file/d/1QZcJmGVlF9f4h-XLWe9Gkmnmj2z1gSnk/view) dataset.
 Download the dataset under the pulled directory.
+For HICO-DET, we use the [annotation files](https://drive.google.com/file/d/1QZcJmGVlF9f4h-XLWe9Gkmnmj2z1gSnk/view) provided by the PPDM authors.
+Below we present how you should place the files.
 ```bash
 # V-COCO setup
 $ git clone https://github.com/s-gupta/v-coco.git
@@ -44,11 +46,12 @@ $ mv hico_20160224_dewt
 HOTR
  |─ Makefile
  |─ main.py
- |─ hotr
-     └─ ..
- |─ data
- │   └─ v-coco
- |       └─  ..
+ |─ hotr/
+ |─ data/
+ │   |─ v-coco
+ |   |   |─ coco
+ |   |   :
+ |   |   └─ data
  │   └─ hico_20160224_det
  |       |─ annotations
  |       |   |─ trainval_hico.json
@@ -63,6 +66,15 @@ If you wish to download the v-coco on our own directory, simply change the 'data
 ```
 
 ## 3. How to Train/Test HOTR on V-COCO dataset
+For training, you can either run on a single GPU or multiple GPUs.
+```bash
+# single-gpu training / testing
+$ make single_[train/test]
+
+# multi-gpu training / testing (8 GPUs)
+$ make multi_[train/test]
+```
+
 For testing, you can either use your own trained weights and pass the directory to the 'resume' argument, or use our provided weights.
 Below is the example of how you should edit the Makefile.
 ```bash
@@ -83,13 +95,6 @@ multi_test:
 ```
 In order to use our provided weights, you can download the weights from this [link](https://arena.kakaocdn.net/brainrepo/hotr/q16.pth).
 Then, pass the directory of the downloaded file (for example, we put the weights under the directory checkpoints/vcoco/q16.pth) to the 'resume' argument as well.
-```bash
-# multi-gpu training / testing (8 GPUs)
-$ make multi_[train/test]
-
-# single-gpu training / testing
-$ make single_[train/test]
-```
 
 ## 4. Results
 Here, we provide improved results of V-COCO Scenario 1 (58.9 mAP, 0.5ms) and HICO-DET Default(Full) (23.76 mAP) from the version of our initial submission (55.2 mAP & 23.46 mAP, 0.9ms).
@@ -137,7 +142,7 @@ python -m torch.distributed.launch \
     --pretrained_dec \
     --num_hoi_queries [:query_num] \
     --object_threshold 0 \
-    --temperature 0.2 \
+    --temperature 0.2 \ # use the exact same temperature value that you used during training!
     --no_aux_loss \
     --eval \
     --dataset_file hico-det \
@@ -202,7 +207,6 @@ The ground-truth for the auxiliary outputs are matched with the ground-truth HOI
 ## 6. Temperature Hyperparameter, tau
 Based on our experimental results, the temperature hyperparameter is sensitive to the number of interaction queries and the coefficient for the index loss and index cost, and the number of decoder layers.
 Empirically, a larger number of queries require a larger tau, and a smaller coefficient for the loss and cost for HO Pointers requires a smaller tau (e.g., for 16 interaction queries, tau=0.05 for the default set_cost_idx=10, hoi_idx_loss_coef=1, hoi_act_loss_coef=10 shows the best result for V-COCO and tau=0.2, set_cost_idx=20 shows the best result for HICO-DET).
-The initial version of HOTR (with 55.2 mAP) has been trained with 100 queries, which required a larger tau (tau=0.1).
 There might be better results than the tau we used in our paper according to these three factors.
 Feel free to explore yourself!
 

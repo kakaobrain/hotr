@@ -60,8 +60,8 @@ def main(args):
     dataset_val = build_dataset(image_set='val' if not args.eval else 'test', args=args)
     assert dataset_train.num_action() == dataset_val.num_action(), "Number of actions should be the same between splits"
     args.num_classes = dataset_train.num_category()
-    args.num_inst_actions = dataset_train.num_inst_action()
     args.num_actions = dataset_train.num_action()
+    args.action_names = dataset_train.get_actions()
     if args.share_enc: args.hoi_enc_layers = args.enc_layers
     if args.pretrained_dec: args.hoi_dec_layers = args.dec_layers
     if args.dataset_file == 'vcoco':
@@ -71,6 +71,8 @@ def main(args):
         args.human_actions = dataset_train.get_human_action()
         args.object_actions = dataset_train.get_object_action()
         args.num_human_act = dataset_train.num_human_act()
+    elif args.dataset_file == 'hico-det':
+        args.valid_obj_ids = dataset_train.get_valid_obj_ids()
     print_args(args)
 
     if args.distributed:
@@ -127,12 +129,27 @@ def main(args):
 
     if args.eval:
         # test only mode
-        total_res = hoi_evaluator(args, model, criterion, postprocessors, data_loader_val, device)
-        sc1, sc2 = hoi_accumulator(args, total_res, True, False)
-        return
+        if args.HOIDet:
+            if args.dataset_file == 'vcoco':
+                total_res = hoi_evaluator(args, model, criterion, postprocessors, data_loader_val, device)
+                sc1, sc2 = hoi_accumulator(args, total_res, True, False)
+            elif args.dataset_file == 'hico-det':
+                test_stats = hoi_evaluator(args, model, None, postprocessors, data_loader_val, device)
+                print(f'| mAP (full)\t\t: {test_stats["mAP"]:.2f}')
+                print(f'| mAP (rare)\t\t: {test_stats["mAP rare"]:.2f}')
+                print(f'| mAP (non-rare)\t: {test_stats["mAP non-rare"]:.2f}')
+            else: raise ValueError(f'dataset {args.dataset_file} is not supported.')
+            return
+        else:
+            test_stats, coco_evaluator = evaluate_coco(model, criterion, postprocessors,
+                                                  data_loader_val, base_ds, device, args.output_dir)
+            if args.output_dir:
+                utils.save_on_master(coco_evaluator.coco_eval["bbox"].eval, output_dir / "eval.pth")
+            return
 
     # stats
     scenario1, scenario2 = 0, 0
+    best_mAP, best_rare, best_non_rare = 0, 0, 0
 
     # add argparse
     if args.wandb and utils.get_rank() == 0:
@@ -157,23 +174,44 @@ def main(args):
         # Validation
         if args.validate:
             print('-'*100)
-            total_res = hoi_evaluator(args, model, criterion, postprocessors, data_loader_val, device)
-            if utils.get_rank() == 0:
-                sc1, sc2 = hoi_accumulator(args, total_res, False, args.wandb)
-                if sc1 > scenario1:
-                    scenario1 = sc1
-                    scenario2 = sc2
-                    save_ckpt(args, model_without_ddp, optimizer, lr_scheduler, epoch, filename='best')
-                print(f'| Scenario #1 mAP : {sc1:.2f} ({scenario1:.2f})')
-                print(f'| Scenario #2 mAP : {sc2:.2f} ({scenario2:.2f})')
+            if args.dataset_file == 'vcoco':
+                total_res = hoi_evaluator(args, model, criterion, postprocessors, data_loader_val, device)
+                if utils.get_rank() == 0:
+                    sc1, sc2 = hoi_accumulator(args, total_res, False, args.wandb)
+                    if sc1 > scenario1:
+                        scenario1 = sc1
+                        scenario2 = sc2
+                        save_ckpt(args, model_without_ddp, optimizer, lr_scheduler, epoch, filename='best')
+                    print(f'| Scenario #1 mAP : {sc1:.2f} ({scenario1:.2f})')
+                    print(f'| Scenario #2 mAP : {sc2:.2f} ({scenario2:.2f})')
+            elif args.dataset_file == 'hico-det':
+                test_stats = hoi_evaluator(args, model, None, postprocessors, data_loader_val, device)
+                if utils.get_rank() == 0:
+                    if test_stats['mAP'] > best_mAP:
+                        best_mAP = test_stats['mAP']
+                        best_rare = test_stats['mAP rare']
+                        best_non_rare = test_stats['mAP non-rare']
+                        save_ckpt(args, model_without_ddp, optimizer, lr_scheduler, epoch, filename='best')
+                    print(f'| mAP (full)\t\t: {test_stats["mAP"]:.2f} ({best_mAP:.2f})')
+                    print(f'| mAP (rare)\t\t: {test_stats["mAP rare"]:.2f} ({best_rare:.2f})')
+                    print(f'| mAP (non-rare)\t: {test_stats["mAP non-rare"]:.2f} ({best_non_rare:.2f})')
+                    if args.wandb and utils.get_rank() == 0:
+                        wandb.log({
+                            'mAP': test_stats['mAP']
+                        })
             print('-'*100)
         save_ckpt(args, model_without_ddp, optimizer, lr_scheduler, epoch, filename='checkpoint')
 
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     print('Training time {}'.format(total_time_str))
-    print(f'| Scenario #1 mAP : {scenario1:.2f}')
-    print(f'| Scenario #2 mAP : {scenario2:.2f}')
+    if args.dataset_file == 'vcoco':
+        print(f'| Scenario #1 mAP : {scenario1:.2f}')
+        print(f'| Scenario #2 mAP : {scenario2:.2f}')
+    elif args.dataset_file == 'hico-det':
+        print(f'| mAP (full)\t\t: {best_mAP:.2f}')
+        print(f'| mAP (rare)\t\t: {best_rare:.2f}')
+        print(f'| mAP (non-rare)\t: {best_non_rare:.2f}')
 
 
 if __name__ == '__main__':

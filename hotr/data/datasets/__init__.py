@@ -4,6 +4,7 @@ import torchvision
 
 from hotr.data.datasets.coco import build as build_coco
 from hotr.data.datasets.vcoco import build as build_vcoco
+from hotr.data.datasets.hico import build as build_hico
 
 def get_coco_api_from_dataset(dataset):
     for _ in range(10): # what is this for?
