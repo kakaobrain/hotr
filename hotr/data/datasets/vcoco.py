@@ -360,7 +360,7 @@ class VCocoDetection(Dataset):
     def get_inst_action(self):
         return self.inst_act_list
 
-    def get_action(self):
+    def get_actions(self):
         return self.act_list
 
     def get_human_action(self):
