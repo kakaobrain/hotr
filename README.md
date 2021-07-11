@@ -44,15 +44,19 @@ $ mv hico_20160224_dewt
 
 # dataset setup
 HOTR
- |─ Makefile
- |─ main.py
- |─ hotr/
- |─ data/
- │   |─ v-coco
- |   |   |─ coco
+ |─ v-coco
+ │   |─ data
+ |   |   |─ instances_vcoco_all_2014.json
  |   |   :
- |   |   └─ data
- │   └─ hico_20160224_det
+ │   └─ coco
+ |       |─ images
+ |       |   |─ train2014
+ |       |   |   |─ COCO_train2014_000000000009.jpg
+ |       |   |   :
+ |       |   └─ val2014
+ |       |       |─ COCO_val2014_000000000042.jpg
+ :       :       :
+ |─ hico_20160224_det
  |       |─ annotations
  |       |   |─ trainval_hico.json
  |       |   |─ test_hico.json
@@ -110,7 +114,7 @@ This is obtained "without" applying any priors on the scores (see [iCAN](https:/
 |:-----:|:---------:|:---------------:|:------:|:--------:|:------------:|
 |  100  |     16    |      23.76      |  22.34 |   24.19  | [download](https://arena.kakaocdn.net/brainrepo/hotr/hico_q16.pth)  |
 
-If you want to use pretrained weights for inference, download the pretrained weights (from the above link) under `checkpoints/vcoco/` or `checkpoints/hico-det` and match the interaction query argument as described in the weight file (others are already set in the Makefile).
+If you want to use pretrained weights for inference, download the pretrained weights (from the above link) under `checkpoints/vcoco/` or `checkpoints/hico-det/` and match the interaction query argument as described in the weight file (others are already set in the Makefile).
 Our evaluation code follows the exact implementations of the official python v-coco evaluation.
 You can test the weights by the command below (e.g., the weight file is named as q16.pth, which denotes that the model uses 16 interaction queries).
 
