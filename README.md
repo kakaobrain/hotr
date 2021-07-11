@@ -132,7 +132,7 @@ python -m torch.distributed.launch \
     --no_aux_loss \
     --eval \
     --dataset_file vcoco \
-    --data_path data/v-coco \
+    --data_path v-coco \
     --resume checkpoints/vcoco/[:query_num].pth
 
 # Inference for HICO-DET (8 GPUs)
@@ -149,7 +149,7 @@ python -m torch.distributed.launch \
     --no_aux_loss \
     --eval \
     --dataset_file hico-det \
-    --data_path /data/public/rw/datasets/hico_20160224_det \
+    --data_path hico_20160224_det \
     --resume checkpoints/hico_det/[:query_num].pth
 ```
 
