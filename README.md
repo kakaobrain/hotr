@@ -30,6 +30,7 @@ $ pip install wandb
 Our current version of HOTR supports the experiments for both [V-COCO](https://github.com/s-gupta/v-coco) and [HICO-DET](https://drive.google.com/file/d/1QZcJmGVlF9f4h-XLWe9Gkmnmj2z1gSnk/view) dataset.
 Download the dataset under the pulled directory.
 For HICO-DET, we use the [annotation files](https://drive.google.com/file/d/1QZcJmGVlF9f4h-XLWe9Gkmnmj2z1gSnk/view) provided by the PPDM authors.
+Download the [list of actions](https://drive.google.com/open?id=1EeHNHuYyJI-qqDk_-5nay7Mb07tzZLsl) as `list_action.txt` and place them under the unballed hico-det directory.
 Below we present how you should place the files.
 ```bash
 # V-COCO setup
@@ -56,6 +57,7 @@ HOTR
  │       │       │─ COCO_val2014_000000000042.jpg
  :       :       :
  │─ hico_20160224_det
+ │       │─ list_action.txt
  │       │─ annotations
  │       │   │─ trainval_hico.json
  │       │   │─ test_hico.json
