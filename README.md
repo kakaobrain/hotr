@@ -207,12 +207,12 @@ Evaluation Inference (HICO-DET)  [597/597]  eta: 0:00:00    time: 0.2099  data: 
 # HICO-DET (finetuned detector)
 [Logger] Number of params:  51204566
 Evaluation Inference (HICO-DET)  [597/597]  eta: 0:00:00    time: 0.2083  data: 0.0109  max mem: 1323
-[stats] Total Time (test) : 0:02:08 (0.2148 s / it)
-[stats] HOI Recognition Time (avg) : 0.9889 ms
-[stats] Score Matrix Generation completed!!
-| mAP (full)            : 25.67
-| mAP (rare)            : 20.52
-| mAP (non-rare)        : 27.21
+[stats] Total Time (test) : 0:02:07 (0.2140 s / it)
+[stats] HOI Recognition Time (avg) : 0.9025 ms
+[stats] Score Matrix Generation completed
+│ mAP (full)            : 25.67
+│ mAP (rare)            : 20.52
+│ mAP (non-rare)        : 27.21
 ```
 The HOI recognition time is calculated by the end-to-end inference time excluding the object detection time.
 
