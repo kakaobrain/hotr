@@ -111,9 +111,10 @@ This is obtained "without" applying any priors on the scores (see [iCAN](https:/
 |  100  |     16    |     58.9     |     63.8    | [download](https://arena.kakaocdn.net/brainrepo/hotr/vcoco_q16.pth)  |
 
 ### 4-2. HICO-DET dataset
-| Epoch | # queries |  Default(Full)  |  Rare  | Non-Rare | Checkpoint   |
-|:-----:|:---------:|:---------------:|:------:|:--------:|:------------:|
-|  100  |     16    |      23.76      |  22.34 |   24.19  | [download](https://arena.kakaocdn.net/brainrepo/hotr/hico_q16.pth)  |
+| Epoch | detector | # queries |  Default(Full)  |  Rare  | Non-Rare | Checkpoint   |
+|:-----:|:--------:|:---------:|:---------------:|:------:|:--------:|:------------:|
+|  100  |    COCO  |     16    |      23.76      |  22.34 |   24.19  | [download](https://arena.kakaocdn.net/brainrepo/hotr/hico_q16.pth)  |
+|  100  | HICO-DET |     16    |      25.67      |  20.52 |   27.21  | [download]() |
 
 If you want to use pretrained weights for inference, download the pretrained weights (from the above link) under `checkpoints/vcoco/` or `checkpoints/hico-det/` and match the interaction query argument as described in the weight file (others are already set in the Makefile).
 Our evaluation code follows the exact implementations of the official python evaluation.
@@ -202,6 +203,16 @@ Evaluation Inference (HICO-DET)  [597/597]  eta: 0:00:00    time: 0.2099  data: 
 │ mAP (full)            : 23.76
 │ mAP (rare)            : 22.34
 │ mAP (non-rare)        : 24.19
+
+# HICO-DET (finetuned detector)
+[Logger] Number of params:  51204566
+Evaluation Inference (HICO-DET)  [597/597]  eta: 0:00:00    time: 0.2083  data: 0.0109  max mem: 1323
+[stats] Total Time (test) : 0:02:08 (0.2148 s / it)
+[stats] HOI Recognition Time (avg) : 0.9889 ms
+[stats] Score Matrix Generation completed!!
+| mAP (full)            : 25.67
+| mAP (rare)            : 20.52
+| mAP (non-rare)        : 27.21
 ```
 The HOI recognition time is calculated by the end-to-end inference time excluding the object detection time.
 
