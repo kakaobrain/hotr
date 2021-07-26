@@ -104,6 +104,7 @@ Then, pass the directory of the downloaded file (for example, to test our pre-tr
 ## 4. Results
 Here, we provide improved results of V-COCO Scenario 1 (58.9 mAP, 0.5ms) and HICO-DET Default(Full) (23.76 mAP) from the version of our initial submission (55.2 mAP & 23.46 mAP, 0.9ms).
 This is obtained "without" applying any priors on the scores (see [iCAN](https://github.com/vt-vl-lab/iCAN/blob/83a363cfc80bf62538d5faf6ec17c871686c0635/lib/ult/apply_prior.py)).
+The fine-tuned version of HICO-DET can be obtained by only fine-tuning the FFN layers of the instance decoder (without the need of fully training the entire encoder-decoder).
 
 ### 4-1. V-COCO dataset
 | Epoch | # queries | Scenario 1   | Scenario 2  | Checkpoint   |
@@ -114,7 +115,7 @@ This is obtained "without" applying any priors on the scores (see [iCAN](https:/
 | Epoch | detector | # queries |  Default(Full)  |  Rare  | Non-Rare | Checkpoint   |
 |:-----:|:--------:|:---------:|:---------------:|:------:|:--------:|:------------:|
 |  100  |    COCO  |     16    |      23.76      |  22.34 |   24.19  | [download](https://arena.kakaocdn.net/brainrepo/hotr/hico_q16.pth)  |
-|  100  | HICO-DET |     16    |      25.67      |  20.52 |   27.21  | [download]() |
+|  100  | HICO-DET |     16    |      25.73      |  21.85 |   26.89  | [download](https://arena.kakaocdn.net/brainrepo/hotr/hico_ft_q16.pth) |
 
 If you want to use pretrained weights for inference, download the pretrained weights (from the above link) under `checkpoints/vcoco/` or `checkpoints/hico-det/` and match the interaction query argument as described in the weight file (others are already set in the Makefile).
 Our evaluation code follows the exact implementations of the official python evaluation.
@@ -198,7 +199,7 @@ Evaluation Inference (V-COCO)  [308/308]  eta: 0:00:00    time: 0.2063  data: 0.
 [Logger] Number of params:  51204566
 Evaluation Inference (HICO-DET)  [597/597]  eta: 0:00:00    time: 0.2099  data: 0.0109  max mem: 1272
 [stats] Total Time (test) : 0:02:07 (0.2140 s / it)
-[stats] HOI Recognition Time (avg) : 0.9025 ms
+[stats] HOI Recognition Time (avg) : 0.6588 ms
 [stats] Score Matrix Generation completed
 │ mAP (full)            : 23.76
 │ mAP (rare)            : 22.34
@@ -208,11 +209,11 @@ Evaluation Inference (HICO-DET)  [597/597]  eta: 0:00:00    time: 0.2099  data: 
 [Logger] Number of params:  51204566
 Evaluation Inference (HICO-DET)  [597/597]  eta: 0:00:00    time: 0.2083  data: 0.0109  max mem: 1323
 [stats] Total Time (test) : 0:02:07 (0.2140 s / it)
-[stats] HOI Recognition Time (avg) : 0.9025 ms
+[stats] HOI Recognition Time (avg) : 0.6588 ms
 [stats] Score Matrix Generation completed
-│ mAP (full)            : 25.67
-│ mAP (rare)            : 20.52
-│ mAP (non-rare)        : 27.21
+│ mAP (full)            : 25.73
+│ mAP (rare)            : 21.85
+│ mAP (non-rare)        : 26.89
 ```
 The HOI recognition time is calculated by the end-to-end inference time excluding the object detection time.
 
