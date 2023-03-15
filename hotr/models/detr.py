@@ -149,6 +149,7 @@ def build(args):
             pretrained_dec=args.pretrained_dec,
             temperature=args.temperature,
             hoi_aux_loss=args.hoi_aux_loss,
+            use_pos_info=args.use_pos_info,
             **kwargs # only return verb class for HICO-DET dataset
         )
         postprocessors = {'hoi': PostProcess(args.HOIDet)}

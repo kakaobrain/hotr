@@ -17,16 +17,16 @@ vcoco_single_train:
 		--hoi_aux_loss \
 		--dataset_file vcoco \
 		--frozen_weights https://dl.fbaipublicfiles.com/detr/detr-r50-e632da11.pth \
-		--data_path v-coco  \
+		--data_path /gemini/code/v-coco  \
 		--output_dir checkpoints/vcoco/
 
-# [V-COCO] multi-gpu train (runs in 8 GPUs)
+# [V-COCO] multi-gpu train (runs in 4 GPUs)
 vcoco_multi_train:
 	python -m torch.distributed.launch \
-		--nproc_per_node=8 \
+		--nproc_per_node=4 \
 		--use_env main.py \
-		--group_name KakaoBrain_HOTR_vcoco \
-		--run_name vcoco_multi_run_000001 \
+		--group_name MMH \
+		--run_name vcoco_multi_run_no_use_pos_info \
 		--HOIDet \
 		--wandb \
 		--validate \
@@ -44,7 +44,7 @@ vcoco_multi_train:
 		--hoi_aux_loss \
 		--dataset_file vcoco \
 		--frozen_weights https://dl.fbaipublicfiles.com/detr/detr-r50-e632da11.pth \
-		--data_path v-coco \
+		--data_path /gemini/code/v-coco \
 		--output_dir checkpoints/vcoco/
 
 # [V-COCO] single-gpu test (runs in 1 GPU)
@@ -98,16 +98,16 @@ hico_single_train:
 		--hoi_aux_loss \
 		--dataset_file hico-det \
 		--frozen_weights https://dl.fbaipublicfiles.com/detr/detr-r50-e632da11.pth \
-		--data_path hico_20160224_det \
+		--data_path /gemini/data-2/hico_20160224_det \
 		--output_dir checkpoints/hico_det/
 
 
-# [HICO-DET] multi-gpu train (runs in 8 GPUs)
+# [HICO-DET] multi-gpu train (runs in 4 GPUs)
 hico_multi_train:
 	python -m torch.distributed.launch \
-		--nproc_per_node=8 \
+		--nproc_per_node=4 \
 		--use_env main.py \
-		--group_name KakaoBrain_HOTR_hicodet \
+		--group_name MMH \
 		--run_name hicodet_multi_run_000001 \
 		--HOIDet \
 		--wandb \

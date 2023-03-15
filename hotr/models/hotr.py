@@ -11,7 +11,19 @@ import datetime
 
 from hotr.util.misc import NestedTensor, nested_tensor_from_tensor_list
 from .feed_forward import MLP
+class MLP(nn.Module):
+    """ Very simple multi-layer perceptron (also called FFN)"""
 
+    def __init__(self, input_dim, hidden_dim, output_dim, num_layers):
+        super().__init__()
+        self.num_layers = num_layers
+        h = [hidden_dim] * (num_layers - 1)
+        self.layers = nn.ModuleList(nn.Linear(n, k) for n, k in zip([input_dim] + h, h + [output_dim]))
+
+    def forward(self, x):
+        for i, layer in enumerate(self.layers):
+            x = F.relu(layer(x)) if i < self.num_layers - 1 else layer(x)
+        return x
 class HOTR(nn.Module):
     def __init__(self, detr,
                  num_hoi_queries,
@@ -22,6 +34,7 @@ class HOTR(nn.Module):
                  pretrained_dec,
                  temperature,
                  hoi_aux_loss,
+                 use_pos_info=False,
                  return_obj_class=None):
         super().__init__()
 
@@ -64,6 +77,31 @@ class HOTR(nn.Module):
         self.hoi_aux_loss = hoi_aux_loss
         # ----------------------------------
 
+        # *************************************
+        # * if add the position info to query *
+        # 如果要使用pos info，那么只要是对decoder中的模块进行操作
+        self.use_pos_info=use_pos_info
+        if self.use_pos_info:
+            # 进行标志的设置
+            self.interaction_transformer.decoder.use_pos_info=True
+            # 获取三个预测头
+            self.interaction_transformer.decoder.H_Pointer_embed=self.H_Pointer_embed
+            self.interaction_transformer.decoder.O_Pointer_embed=self.O_Pointer_embed
+            self.interaction_transformer.decoder.bbox_embed=self.detr.bbox_embed
+
+            # repr scaler
+            # self.repr_scaler=None
+
+            # 暂时假设每个层的MLP都是不同的吧
+            # scaler的输出维度可以是d model也可以是1，这个可以进行实验
+            # scaler可以每一层共享参数，也可以每一层都一样
+            d_model=hidden_dim
+            self.interaction_transformer.decoder.H_Pointer_scaler = MLP(d_model, d_model, d_model, 2)
+            self.interaction_transformer.decoder.O_Pointer_scaler = MLP(d_model, d_model, d_model, 2)
+            self.interaction_transformer.decoder.Pointer_proj = MLP(2 * d_model, d_model, d_model, 3)
+            self.interaction_transformer.decoder.pos_scaler = MLP(d_model, d_model, d_model, 2)
+        # **************************************
+
     def forward(self, samples: NestedTensor):
         if isinstance(samples, (list, torch.Tensor)):
             samples = nested_tensor_from_tensor_list(samples)
@@ -89,14 +127,21 @@ class HOTR(nn.Module):
         # >>>>>>>>>>>> HOI DETECTION LAYERS <<<<<<<<<<<<<<<
         start_time = time.time()
         assert hasattr(self, 'interaction_transformer'), "Missing Interaction Transformer."
-        interaction_hs = self.interaction_transformer(self.detr.input_proj(src), mask, self.query_embed.weight, pos[-1])[0] # interaction representations
-    
-        # [HO Pointers]
-        H_Pointer_reprs = F.normalize(self.H_Pointer_embed(interaction_hs), p=2, dim=-1)
-        O_Pointer_reprs = F.normalize(self.O_Pointer_embed(interaction_hs), p=2, dim=-1)
+
+        # *********************************************
+        # 如果是使用了pos info，那么输出的时候连通指针进行输出
+        if not self.use_pos_info:
+            interaction_hs = self.interaction_transformer(self.detr.input_proj(src), mask, self.query_embed.weight, pos[-1])[0] # interaction representations
+            # [HO Pointers]
+            H_Pointer_reprs = F.normalize(self.H_Pointer_embed(interaction_hs), p=2, dim=-1)
+            O_Pointer_reprs = F.normalize(self.O_Pointer_embed(interaction_hs), p=2, dim=-1)
+        else:
+            interaction_hs,memory,H_Pointer_reprs,O_Pointer_reprs=self.interaction_transformer(self.detr.input_proj(src),mask,self.query_embed.weight,pos[-1])
+            H_Pointer_reprs=F.normalize(H_Pointer_reprs,p=2,dim=-1)
+            O_Pointer_reprs=F.normalize(O_Pointer_reprs,p=2,dim=-1)
         outputs_hidx = [(torch.bmm(H_Pointer_repr, inst_repr.transpose(1,2))) / self.tau for H_Pointer_repr in H_Pointer_reprs]
         outputs_oidx = [(torch.bmm(O_Pointer_repr, inst_repr.transpose(1,2))) / self.tau for O_Pointer_repr in O_Pointer_reprs]
-        
+        # *********************************************
         # [Action Classification]
         outputs_action = self.action_embed(interaction_hs)
         # --------------------------------------------------

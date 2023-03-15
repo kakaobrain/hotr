@@ -134,6 +134,11 @@ def get_args_parser():
                         help='number of distributed processes')
     parser.add_argument('--dist_url', default='env://', help='url used to set up distributed training')
 
+    # **********************************************************
+    parser.add_argument('--use_pos_info',action='store_true',
+                        help='add the position information to the decoder query')
+    # **********************************************************
+
     # * WanDB
     parser.add_argument('--wandb', action='store_true')
     parser.add_argument('--project_name', default='HOTR')
