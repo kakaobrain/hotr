@@ -96,8 +96,10 @@ class HOTR(nn.Module):
             # scaler的输出维度可以是d model也可以是1，这个可以进行实验
             # scaler可以每一层共享参数，也可以每一层都一样
             d_model=hidden_dim
-            self.interaction_transformer.decoder.H_Pointer_scaler = MLP(d_model, d_model, d_model, 2)
-            self.interaction_transformer.decoder.O_Pointer_scaler = MLP(d_model, d_model, d_model, 2)
+            # self.interaction_transformer.decoder.H_Pointer_scaler = MLP(d_model, d_model, d_model, 2)
+            # self.interaction_transformer.decoder.O_Pointer_scaler = MLP(d_model, d_model, d_model, 2)
+            self.interaction_transformer.decoder.H_Pointer_scaler = MLP(d_model, d_model, 1, 2)
+            self.interaction_transformer.decoder.O_Pointer_scaler = MLP(d_model, d_model, 1, 2)
             self.interaction_transformer.decoder.Pointer_proj = MLP(2 * d_model, d_model, d_model, 3)
             self.interaction_transformer.decoder.pos_scaler = MLP(d_model, d_model, d_model, 2)
         # **************************************

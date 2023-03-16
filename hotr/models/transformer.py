@@ -92,6 +92,7 @@ class Transformer(nn.Module):
             return hs.transpose(1, 2), memory.permute(1, 2, 0).view(bs, c, h, w)
         else:
             hs,H_Pointer_reprs,O_Pointer_reprs=self.decoder(tgt, memory, memory_key_padding_mask=mask, pos=pos_embed, query_pos=query_embed)
+            # 这里return的memory没有用到，可能会出问题
             return hs.transpose(1, 2), memory.permute(1, 2, 0).view(bs, c, h, w),H_Pointer_reprs.transpose(1,2),O_Pointer_reprs.transpose(1,2)
 
 
@@ -182,25 +183,25 @@ class TransformerDecoder(nn.Module):
                 H_Pointer_scaler=self.H_Pointer_scaler(output)
                 O_Pointer_scaler=self.O_Pointer_scaler(output)
                 # 获取bbox
-                self.bbox_embed.eval()
+                # self.bbox_embed.eval()
                 h_bbox=self.bbox_embed(H_Pointer_scaler*H_Pointer_reprs).sigmoid()
                 o_bbox=self.bbox_embed(O_Pointer_scaler*O_Pointer_reprs).sigmoid()
-                self.bbox_embed.train()
+                # self.bbox_embed.train()
                 # 获取bbox的sin pos
                 h_sin_embed=gen_sineembed_for_position(h_bbox)
                 o_sin_embed=gen_sineembed_for_position(o_bbox)
                 # 相加÷2
                 query_sin_embed=(h_sin_embed+o_sin_embed)/2  # 2d
+                # ***这里的query_pos1我之前没用上，这是一个bug
                 query_pos1=self.Pointer_proj(query_sin_embed)
                 # 获取第二个要相加的位置query
-                query_pos2=query_sin_embed[...,:self.d_model]
-                query_pos2*=self.pos_scaler(output)
+                query_pos2=query_sin_embed[...,:self.d_model]*self.pos_scaler(output)
                 # 接下来是要修改transformer decoder layer的东西了，这里增加了一个参数query pos2进行拓展
                 output = layer(output, memory, tgt_mask=tgt_mask,
                                memory_mask=memory_mask,
                                tgt_key_padding_mask=tgt_key_padding_mask,
                                memory_key_padding_mask=memory_key_padding_mask,
-                               pos=pos, query_pos=query_pos,query_pos2=query_pos2)
+                               pos=pos, query_pos=query_pos1,query_pos2=query_pos2)
                 # 确定一下是否返回里面的值
                 if self.return_intermediate:
                     intermediate.append(self.norm(output))

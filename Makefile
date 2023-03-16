@@ -1,9 +1,10 @@
 # [V-COCO] single-gpu train (runs in 1 GPU)
 vcoco_single_train:
 	python main.py \
-		--group_name KakaoBrain_HOTR_vcoco \
-		--run_name vcoco_single_run_000001 \
+		--group_name MMH_vcoco_no_use_pos_info \
+		--run_name vcoco_single_run \
 		--HOIDet \
+		--wandb \
 		--validate \
 		--share_enc \
 		--pretrained_dec \
@@ -25,8 +26,8 @@ vcoco_multi_train:
 	python -m torch.distributed.launch \
 		--nproc_per_node=4 \
 		--use_env main.py \
-		--group_name MMH \
-		--run_name vcoco_multi_run_no_use_pos_info \
+		--group_name MMH_vcoco_use_pos_info \
+		--run_name vcoco_multi_run \
 		--HOIDet \
 		--wandb \
 		--validate \
@@ -45,7 +46,8 @@ vcoco_multi_train:
 		--dataset_file vcoco \
 		--frozen_weights https://dl.fbaipublicfiles.com/detr/detr-r50-e632da11.pth \
 		--data_path /gemini/code/v-coco \
-		--output_dir checkpoints/vcoco/
+		--output_dir checkpoints/vcoco/ \
+		--use_pos_info
 
 # [V-COCO] single-gpu test (runs in 1 GPU)
 vcoco_single_test:
@@ -89,6 +91,7 @@ hico_single_train:
 		--share_enc \
 		--pretrained_dec \
 		--lr 1e-4 \
+
 		--num_hoi_queries 16 \
 		--set_cost_idx 20 \
 		--hoi_act_loss_coef 10 \
