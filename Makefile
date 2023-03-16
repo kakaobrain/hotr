@@ -1,7 +1,7 @@
 # [V-COCO] single-gpu train (runs in 1 GPU)
 vcoco_single_train:
 	python main.py \
-		--group_name MMH_vcoco_no_use_pos_info \
+		--group_name MMH_vcoco \
 		--run_name vcoco_single_run \
 		--HOIDet \
 		--wandb \
