@@ -150,6 +150,10 @@ def build(args):
             temperature=args.temperature,
             hoi_aux_loss=args.hoi_aux_loss,
             use_pos_info=args.use_pos_info,
+            use_pos_scaler=args.no_pos_scaler,
+            use_pointer_scaler=args.no_pointer_scaler,
+            pos_scaler_type=args.pos_scaler_type,
+            pointer_scaler_type=args.pointer_scaler_type,
             **kwargs # only return verb class for HICO-DET dataset
         )
         postprocessors = {'hoi': PostProcess(args.HOIDet)}

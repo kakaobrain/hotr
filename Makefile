@@ -4,7 +4,6 @@ vcoco_single_train:
 		--group_name MMH_vcoco \
 		--run_name vcoco_single_run \
 		--HOIDet \
-		--wandb \
 		--validate \
 		--share_enc \
 		--pretrained_dec \
@@ -19,7 +18,9 @@ vcoco_single_train:
 		--dataset_file vcoco \
 		--frozen_weights https://dl.fbaipublicfiles.com/detr/detr-r50-e632da11.pth \
 		--data_path /gemini/code/v-coco  \
-		--output_dir checkpoints/vcoco/
+		--output_dir checkpoints/vcoco/ \
+		--use_pos_info \
+		--pos_scaler_type scaler
 
 # [V-COCO] multi-gpu train (runs in 4 GPUs)
 vcoco_multi_train:

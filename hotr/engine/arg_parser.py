@@ -137,6 +137,12 @@ def get_args_parser():
     # **********************************************************
     parser.add_argument('--use_pos_info',action='store_true',
                         help='add the position information to the decoder query')
+    parser.add_argument('--no_pos_scaler',action='store_false',
+                        help='use the scaler to the position embedding')
+    parser.add_argument('--no_pointer_scaler',action='store_false',
+                        help='use the scaler to the pointer embedding')
+    parser.add_argument('--pos_scaler_type',type=str,default='scaler',choices=('scaler','elewise'))
+    parser.add_argument('--pointer_scaler_type',type=str,default='elewise',choices=('scaler','elewise'))
     # **********************************************************
 
     # * WanDB

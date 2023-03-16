@@ -35,6 +35,10 @@ class HOTR(nn.Module):
                  temperature,
                  hoi_aux_loss,
                  use_pos_info=False,
+                 use_pos_scaler=True,
+                 use_pointer_scaler=True,
+                 pos_scaler_type='scaler',
+                 pointer_scaler_type='scaler',
                  return_obj_class=None):
         super().__init__()
 
@@ -81,6 +85,10 @@ class HOTR(nn.Module):
         # * if add the position info to query *
         # 如果要使用pos info，那么只要是对decoder中的模块进行操作
         self.use_pos_info=use_pos_info
+        self.use_pos_scaler=use_pos_scaler
+        self.use_pointer_scaler=use_pointer_scaler
+        self.pos_scaler_type=pos_scaler_type
+        self.pointer_scaler_type=pointer_scaler_type
         if self.use_pos_info:
             # 进行标志的设置
             self.interaction_transformer.decoder.use_pos_info=True
@@ -98,10 +106,21 @@ class HOTR(nn.Module):
             d_model=hidden_dim
             # self.interaction_transformer.decoder.H_Pointer_scaler = MLP(d_model, d_model, d_model, 2)
             # self.interaction_transformer.decoder.O_Pointer_scaler = MLP(d_model, d_model, d_model, 2)
-            self.interaction_transformer.decoder.H_Pointer_scaler = MLP(d_model, d_model, 1, 2)
-            self.interaction_transformer.decoder.O_Pointer_scaler = MLP(d_model, d_model, 1, 2)
+            # 触发的时候，那么对应的scaler将会被设置为None
+            if self.use_pointer_scaler:
+                if self.pos_scaler_type=='scaler':
+                    self.interaction_transformer.decoder.H_Pointer_scaler = MLP(d_model, d_model, 1, 2)
+                    self.interaction_transformer.decoder.O_Pointer_scaler = MLP(d_model, d_model, 1, 2)
+                elif self.pos_scaler_type=='elewise':
+                    self.interaction_transformer.decoder.H_Pointer_scaler = MLP(d_model, d_model, d_model, 2)
+                    self.interaction_transformer.decoder.O_Pointer_scaler = MLP(d_model, d_model, d_model, 2)
             self.interaction_transformer.decoder.Pointer_proj = MLP(2 * d_model, d_model, d_model, 3)
-            self.interaction_transformer.decoder.pos_scaler = MLP(d_model, d_model, d_model, 2)
+            if self.use_pos_scaler:
+                if self.pointer_scaler_type=='scaler':
+                    self.interaction_transformer.decoder.pos_scaler = MLP(d_model, d_model, 1, 2)
+                elif self.pos_scaler_type=='elewise':
+                    self.interaction_transformer.decoder.pos_scaler = MLP(d_model, d_model, d_model, 2)
+
         # **************************************
 
     def forward(self, samples: NestedTensor):

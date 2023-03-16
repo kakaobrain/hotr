@@ -132,22 +132,36 @@ class TransformerDecoder(nn.Module):
         # flag
         self.use_pos_info=False
         self.d_model=d_model
-        if self.use_pos_info:
-            # pointer prediction head
-            self.H_Pointer_embed = None
-            self.O_Pointer_embed = None
-            # repr scaler
-            # self.repr_scaler=None
-            #  bbox prediction head
-            self.bbox_embed = None
-            # 暂时假设每个层的MLP都是不同的吧
-            # scaler的输出维度可以是d model也可以是1，这个可以进行实验
-            # scaler可以每一层共享参数，也可以每一层都一样
-            self.H_Pointer_scaler = None
-            self.O_Pointer_scaler = None
-            self.Pointer_proj = None
-            self.pos_scaler = None
+        # if self.use_pos_info:
+        #     # pointer prediction head
+        #     self.H_Pointer_embed = None
+        #     self.O_Pointer_embed = None
+        #     # repr scaler
+        #     # self.repr_scaler=None
+        #     #  bbox prediction head
+        #     self.bbox_embed = None
+        #     # 暂时假设每个层的MLP都是不同的吧
+        #     # scaler的输出维度可以是d model也可以是1，这个可以进行实验
+        #     # scaler可以每一层共享参数，也可以每一层都一样
+        #     self.H_Pointer_scaler = None
+        #     self.O_Pointer_scaler = None
+        #     self.Pointer_proj = None
+        #     self.pos_scaler = None
         # ******************************************
+        # pointer prediction head
+        self.H_Pointer_embed = None
+        self.O_Pointer_embed = None
+        # repr scaler
+        # self.repr_scaler=None
+        #  bbox prediction head
+        self.bbox_embed = None
+        # 暂时假设每个层的MLP都是不同的吧
+        # scaler的输出维度可以是d model也可以是1，这个可以进行实验
+        # scaler可以每一层共享参数，也可以每一层都一样
+        self.H_Pointer_scaler = None
+        self.O_Pointer_scaler = None
+        self.Pointer_proj = None
+        self.pos_scaler = None
     def forward(self, tgt, memory,
                 tgt_mask: Optional[Tensor] = None,
                 memory_mask: Optional[Tensor] = None,
@@ -180,8 +194,12 @@ class TransformerDecoder(nn.Module):
                 H_Pointer_reprs=self.H_Pointer_embed(output)
                 O_Pointer_reprs=self.O_Pointer_embed(output)
                 # 获取pointer scaler
-                H_Pointer_scaler=self.H_Pointer_scaler(output)
-                O_Pointer_scaler=self.O_Pointer_scaler(output)
+                if self.H_Pointer_scaler is not None and self.O_Pointer_scaler is not None:
+                    H_Pointer_scaler=self.H_Pointer_scaler(output)
+                    O_Pointer_scaler=self.O_Pointer_scaler(output)
+                else:
+                    H_Pointer_scaler=1
+                    O_Pointer_scaler=1
                 # 获取bbox
                 # self.bbox_embed.eval()
                 h_bbox=self.bbox_embed(H_Pointer_scaler*H_Pointer_reprs).sigmoid()
@@ -195,7 +213,10 @@ class TransformerDecoder(nn.Module):
                 # ***这里的query_pos1我之前没用上，这是一个bug
                 query_pos1=self.Pointer_proj(query_sin_embed)
                 # 获取第二个要相加的位置query
-                query_pos2=query_sin_embed[...,:self.d_model]*self.pos_scaler(output)
+                if self.pos_scaler is not None:
+                    query_pos2=query_sin_embed[...,:self.d_model]*self.pos_scaler(output)
+                else:
+                    query_pos2=query_sin_embed[...,:self.d_model]
                 # 接下来是要修改transformer decoder layer的东西了，这里增加了一个参数query pos2进行拓展
                 output = layer(output, memory, tgt_mask=tgt_mask,
                                memory_mask=memory_mask,
